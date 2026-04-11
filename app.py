@@ -1,61 +1,72 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
-import plotly.express as px
+from datetime import datetime
+from streamlit_calendar import calendar
 
-# 1. 페이지 설정 (앱 상단 탭 이름과 레이아웃)
-st.set_page_config(page_title="My Growth App", layout="wide")
+st.set_page_config(page_title="Growth Dashboard", layout="wide")
 
-st.title("🚀 My Smart Dashboard")
+# --- 1. 요일별 운동 자동 설정 ---
+today = datetime.now()
+weekday = today.weekday()  # 0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일
 
-# 2. 사이드바 - 데일리 루틴 (사용자님 맞춤형)
-st.sidebar.header("🗓️ Daily Routine")
-r1 = st.sidebar.checkbox("오늘의 운동 (수영/야구)")
-r2 = st.sidebar.checkbox("영어 문장 1개 외우기")
-r3 = st.sidebar.checkbox("투자 일지 쓰기")
-r4 = st.sidebar.checkbox("식단/영양제 체크")
+workout_map = {0: "헬스", 2: "헬스", 4: "헬스", 5: "수영"}
+today_workout = workout_map.get(weekday, "개인 정비") # 월수금토 외에는 개인 정비로 표시
 
-if all([r1, r2, r3, r4]):
-    st.sidebar.success("오늘의 루틴 완료! 고생하셨어요! 🏆")
+# --- 2. 사이드바 루틴 설정 ---
+st.sidebar.header("📅 Daily Routine")
+st.sidebar.write(f"오늘은 **{today.strftime('%Y-%m-%d')}** 입니다.")
 
-# 3. 메인 화면 레이아웃
-col1, col2 = st.columns([3, 2])
+with st.sidebar:
+    st.subheader("체크리스트")
+    done1 = st.checkbox(f"운동 ({today_workout})")
+    done2 = st.checkbox("영어: 20분 프리토킹")
+    done3 = st.checkbox("영어: 구동사 3개 외우기")
+    done4 = st.checkbox("독서: 30분")
+    done5 = st.checkbox("경제 공부: 30분")
+    
+    # 완료 개수 계산
+    score = sum([done1, done2, done3, done4, done5])
+    
+    if st.button("오늘 루틴 저장하기"):
+        # 실제 운영 시에는 DB나 파일에 저장하는 로직이 필요하지만, 
+        # 우선 현재 세션에서 성공 메시지만 띄웁니다.
+        st.success(f"오늘 {score}개 완료! 저장되었습니다.")
+
+# --- 3. 메인 화면 ---
+col1, col2 = st.columns([2, 3])
 
 with col1:
-    st.subheader("💰 실시간 자산 현황")
-    
-    # 내 포트폴리오 설정 (여기 종목과 수량을 본인 것에 맞게 수정하세요!)
-    my_assets = {
-        "Ticker": ["SCHD", "JEPQ", "QLD", "TSLA", "BTC-USD"],
-        "Qty": [1, 1, 1, 1, 1] # 일단 1개씩으로 설정해두었습니다.
-    }
-    
-    if st.button('시세 새로고침'):
-        with st.spinner('가격을 불러오는 중...'):
-            tickers = my_assets["Ticker"]
-            prices = {}
-            for t in tickers:
-                prices[t] = yf.Ticker(t).history(period="1d")['Close'].iloc[-1]
-            
-            df = pd.DataFrame(my_assets)
-            df['Price'] = df['Ticker'].map(prices)
-            df['Value'] = df['Qty'] * df['Price']
-            
-            total_val = df['Value'].sum()
-            st.metric("총 자산 가치", f"${total_val:,.2f}")
-            
-            fig = px.pie(df, values='Value', names='Ticker', hole=0.4)
-            st.plotly_chart(fig, use_container_width=True)
-            st.table(df)
+    st.subheader("💰 자산 현황")
+    st.info("이전 코드를 유지하거나 시세를 확인하는 버튼을 여기에 배치하세요.")
+    # (기존에 드린 자산 시세 코드를 이 부분에 넣으시면 됩니다.)
 
 with col2:
-    st.subheader("📚 자기계발 & 영어")
+    st.subheader("🗓️ 월간 달성도 캘린더")
     
-    # 영어 공부 섹션
-    st.info("💡 **Today's English**\n\n'Consistency is the key.' (꾸준함이 핵심이다.)")
+    # 성취도별 색상 정의
+    # 파랑(5개), 초록(4~3개), 노랑(2개), 주황(1개), 빨강(0개)
+    # 실제 데이터 연동 전 예시 마킹 데이터입니다.
+    calendar_events = [
+        {"title": "🔵", "start": "2026-04-01", "color": "#1E90FF"}, # 5개
+        {"title": "🟢", "start": "2026-04-02", "color": "#32CD32"}, # 3~4개
+        {"title": "🟡", "start": "2026-04-03", "color": "#FFD700"}, # 2개
+        {"title": "🟠", "start": "2026-04-04", "color": "#FF8C00"}, # 1개
+        {"title": "🔴", "start": "2026-04-05", "color": "#FF4500"}, # 0개
+    ]
     
-    # 메모장
-    st.subheader("📝 콘텐츠/공부 노트")
-    note = st.text_area("블로그나 영상 아이디어를 적어보세요.", height=200)
-    if st.button("저장하기"):
+    calendar_options = {
+        "editable": "false",
+        "selectable": "true",
+        "headerToolbar": {
+            "left": "today",
+            "center": "title",
+            "right": "prev,next",
+        },
+    }
+    
+    calendar(events=calendar_events, options=calendar_options)
+    
+    st.markdown("""
+    **[범례]** 🔵 완료 5개 | 🟢 완료 3-4개 | 🟡 완료 2개 | 🟠 완료 1개 | 🔴 완료 0개
+    """)
         st.success("내용이 임시 저장되었습니다.")
