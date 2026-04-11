@@ -1,72 +1,83 @@
 import streamlit as st
 import pandas as pd
+import yfinance as yf
+import plotly.express as px
 from datetime import datetime
 from streamlit_calendar import calendar
 
-st.set_page_config(page_title="Growth Dashboard", layout="wide")
+# 1. 페이지 설정
+st.set_page_config(page_title="My Growth App", layout="wide")
 
-# --- 1. 요일별 운동 자동 설정 ---
+# --- 2. 요일별 운동 자동 설정 로직 ---
 today = datetime.now()
 weekday = today.weekday()  # 0:월, 1:화, 2:수, 3:목, 4:금, 5:토, 6:일
-
 workout_map = {0: "헬스", 2: "헬스", 4: "헬스", 5: "수영"}
-today_workout = workout_map.get(weekday, "개인 정비") # 월수금토 외에는 개인 정비로 표시
+today_workout = workout_map.get(weekday, "개인 정비")
 
-# --- 2. 사이드바 루틴 설정 ---
-st.sidebar.header("📅 Daily Routine")
-st.sidebar.write(f"오늘은 **{today.strftime('%Y-%m-%d')}** 입니다.")
+# --- 3. 사이드바: 루틴 체크리스트 ---
+st.sidebar.header(f"📅 {today.strftime('%Y-%m-%d')} 루틴")
 
 with st.sidebar:
-    st.subheader("체크리스트")
     done1 = st.checkbox(f"운동 ({today_workout})")
     done2 = st.checkbox("영어: 20분 프리토킹")
     done3 = st.checkbox("영어: 구동사 3개 외우기")
     done4 = st.checkbox("독서: 30분")
     done5 = st.checkbox("경제 공부: 30분")
     
-    # 완료 개수 계산
     score = sum([done1, done2, done3, done4, done5])
     
     if st.button("오늘 루틴 저장하기"):
-        # 실제 운영 시에는 DB나 파일에 저장하는 로직이 필요하지만, 
-        # 우선 현재 세션에서 성공 메시지만 띄웁니다.
-        st.success(f"오늘 {score}개 완료! 저장되었습니다.")
+        st.success(f"총 {score}개 완료! (데이터 연동 전)")
 
-# --- 3. 메인 화면 ---
-col1, col2 = st.columns([2, 3])
+# --- 4. 메인 화면 레이아웃 ---
+col1, col2 = st.columns([3, 2])
 
 with col1:
-    st.subheader("💰 자산 현황")
-    st.info("이전 코드를 유지하거나 시세를 확인하는 버튼을 여기에 배치하세요.")
-    # (기존에 드린 자산 시세 코드를 이 부분에 넣으시면 됩니다.)
+    st.subheader("💰 실시간 자산 현황")
+    
+    # 여기에 본인이 보유한 티커와 수량을 입력하세요
+    my_assets = {
+        "Ticker": ["SCHD", "JEPQ", "QLD", "TSLA", "BTC-USD"],
+        "Qty": [1, 1, 1, 1, 1] 
+    }
+    
+    if st.button('시세 새로고침'):
+        with st.spinner('가격을 불러오는 중...'):
+            tickers = my_assets["Ticker"]
+            prices = {}
+            for t in tickers:
+                prices[t] = yf.Ticker(t).history(period="1d")['Close'].iloc[-1]
+            
+            df = pd.DataFrame(my_assets)
+            df['Price'] = df['Ticker'].map(prices)
+            df['Value'] = df['Qty'] * df['Price']
+            
+            total_val = df['Value'].sum()
+            st.metric("총 자산 가치", f"${total_val:,.2f}")
+            
+            fig = px.pie(df, values='Value', names='Ticker', hole=0.4)
+            st.plotly_chart(fig, use_container_width=True)
+            st.table(df)
 
 with col2:
     st.subheader("🗓️ 월간 달성도 캘린더")
     
-    # 성취도별 색상 정의
-    # 파랑(5개), 초록(4~3개), 노랑(2개), 주황(1개), 빨강(0개)
-    # 실제 데이터 연동 전 예시 마킹 데이터입니다.
+    # 성취도별 예시 데이터 (실제 저장 기능 구현 전 예시)
     calendar_events = [
-        {"title": "🔵", "start": "2026-04-01", "color": "#1E90FF"}, # 5개
-        {"title": "🟢", "start": "2026-04-02", "color": "#32CD32"}, # 3~4개
-        {"title": "🟡", "start": "2026-04-03", "color": "#FFD700"}, # 2개
-        {"title": "🟠", "start": "2026-04-04", "color": "#FF8C00"}, # 1개
-        {"title": "🔴", "start": "2026-04-05", "color": "#FF4500"}, # 0개
+        {"title": "🔵", "start": "2026-04-11", "color": "#1E90FF"}, # 오늘 날짜 예시
     ]
     
     calendar_options = {
-        "editable": "false",
-        "selectable": "true",
-        "headerToolbar": {
-            "left": "today",
-            "center": "title",
-            "right": "prev,next",
-        },
+        "headerToolbar": {"left": "today", "center": "title", "right": "prev,next"},
+        "initialView": "dayGridMonth",
     }
     
     calendar(events=calendar_events, options=calendar_options)
     
     st.markdown("""
-    **[범례]** 🔵 완료 5개 | 🟢 완료 3-4개 | 🟡 완료 2개 | 🟠 완료 1개 | 🔴 완료 0개
+    **[범례]** 🔵5개(완벽) | 🟢3-4개 | 🟡2개 | 🟠1개 | 🔴0개
     """)
-        st.success("내용이 임시 저장되었습니다.")
+
+    st.divider()
+    st.subheader("📝 공부 노트")
+    note = st.text_area("아이디어를 적어보세요.", height=150)
