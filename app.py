@@ -1,145 +1,69 @@
 import streamlit as st
 import pandas as pd
-import yfinance as yf
-import plotly.express as px
 from datetime import datetime
 
-# 1. 페이지 설정
-st.set_page_config(page_title="Hyeokjun's Alpha Dashboard", layout="wide")
+# 1. 페이지 설정 (심플하게)
+st.set_page_config(page_title="Alpha News Agent", page_icon="📰")
 
-# --- 2. 데이터 초기화 (사용자님 자산 현황 반영) ---
-# 요약 데이터 (평가금 순 정렬)
-summary_data = {
-    "항목": ["해외배당주", "현금", "해외성장주", "예적금", "코인", "달러", "국내성장주", "어음"],
-    "평가금": [97951399, 40181771, 37683442, 22620000, 11383883, 9202528, 7563500, 5346391]
-}
-
-# 상세 데이터
-detail_data = {
-    "계좌/플랫폼": ["한국투자", "외화보통", "미래에셋", "우리은행", "업비트", "신한은행", "미래에셋", "키움증권"],
-    "종목명": ["SCHD", "현금", "QLD", "정기예금", "BTC", "USD", "국내주식", "발행어음"],
-    "평가금": [97951399, 40181771, 37683442, 22620000, 11383883, 9202528, 7563500, 5346391]
-}
-
-# --- 3. 상단: 자산 관리 섹션 ---
-st.title("🚀 Hyeokjun's Alpha Dashboard")
-
-with st.container():
-    st.subheader("💰 실시간 자산 현황")
-    col_a, col_b = st.columns([3, 1])
-    
-    with col_a:
-        df_sum = pd.DataFrame(summary_data).sort_values(by="평가금", ascending=False)
-        edited_summary = st.data_editor(df_sum, use_container_width=True, key="main_asset_edit")
-        total_val = edited_summary['평가금'].sum()
-        st.metric("총 자산 합계", f"{total_val:,.0f} 원")
-    
-    with col_b:
-        fig = px.pie(edited_summary, values='평가금', names='항목', hole=0.5, template="plotly_dark")
-        fig.update_layout(margin=dict(l=20, r=20, t=20, b=20), showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-
-    # 자산 상세 더보기
-    with st.expander("🔍 계좌별/종목별 세부 항목 상세 보기"):
-        st.data_editor(pd.DataFrame(detail_data).sort_values(by="평가금", ascending=False), use_container_width=True, key="detail_asset_edit")
-
-st.divider()
-
-# --- 4. 월별 통계 리포트 ---
-st.subheader("📊 월별 루틴 성취도 리포트")
-month_stats = {
-    "기준월": ["2026-03", "2026-04(진행중)"],
-    "🔵(5개)": [15, 2],
-    "🟢(3-4개)": [8, 1],
-    "🟡(2개)": [5, 0],
-    "🟠(1개)": [2, 0],
-    "🔴(0개)": [1, 0]
-}
-st.table(pd.DataFrame(month_stats))
-
-st.divider()
-
-# --- 5. 중간 섹션: 좌(소비내역) / 우(루틴 & 캘린더) ---
-col_left, col_right = st.columns([1, 1])
-
-with col_left:
-    st.subheader("💸 Daily Spending Log")
-    if 'spending_log' not in st.session_state:
-        st.session_state.spending_log = pd.DataFrame(columns=['항목', '세부내용', '금액'])
-    
-    with st.form("money_form", clear_on_submit=True):
-        f1, f2, f3 = st.columns([1, 2, 1])
-        item = f1.selectbox("구분", ["식비", "교통", "쇼핑", "자기계발", "기타"])
-        detail = f2.text_input("내용")
-        price = f3.number_input("금액", step=1000)
-        if st.form_submit_button("지출 기록"):
-            new_row = pd.DataFrame([[item, detail, price]], columns=['항목', '세부내용', '금액'])
-            st.session_state.spending_log = pd.concat([st.session_state.spending_log, new_row], ignore_index=True)
-    
-    st.table(st.session_state.spending_log)
-    st.write(f"**💰 오늘 총 지출 합계: {st.session_state.spending_log['금액'].sum():,.0f} 원**")
-
-with col_right:
-    st.subheader("🗓️ Routine Tracker")
-    w_day = datetime.now().weekday()
-    workout = {0:"헬스", 2:"헬스", 4:"헬스", 5:"수영"}.get(w_day, "개인정비")
-    
-    c1 = st.checkbox(f"운동 ({workout})")
-    c2 = st.checkbox("영어: 20분 프리토킹")
-    c3 = st.checkbox("영어: 구동사 3개 암기")
-    c4 = st.checkbox("독서: 30분")
-    c5 = st.checkbox("경제 공부: 30분")
-    
-    score = sum([c1, c2, c3, c4, c5])
-    marks = {5:"🔵", 4:"🟢", 3:"🟢", 2:"🟡", 1:"🟠", 0:"🔴"}
-    
-    st.write("---")
-    c_days = [str(i).zfill(2) for i in range(1, 31)]
-    for i in range(0, len(c_days), 7):
-        cols = st.columns(7)
-        for j in range(7):
-            if i+j < len(c_days):
-                day_num = c_days[i+j]
-                with cols[j]:
-                    st.write(f"**{day_num}**")
-                    if int(day_num) == datetime.now().day:
-                        st.write(marks[score])
-                    else:
-                        st.write("⚪")
-
-st.divider()
-
-# --- 6. 최하단 섹션: 미국 시장 및 시사 뉴스 (카테고리별 10선) ---
-st.subheader("📰 Global Market & US Insight (Top 10)")
+# --- 2. 뉴스 에이전트 로직 (매일 업데이트될 뉴스 데이터) ---
+# 실제 운영 시에는 뉴스 API나 크롤링 기능을 연결할 수 있습니다.
+today = datetime.now().strftime('%Y년 %m월 %d일')
 
 news_data = [
-    # 내 종목 관련 (2가지)
-    {"cat": "My Assets", "title": "🎯 SCHD: Dividend Growth & Portfolio Analysis (Yahoo Finance)", "url": "https://finance.yahoo.com/quote/SCHD"},
-    {"cat": "My Assets", "title": "🎯 QLD: Nasdaq 100 Leveraged Market Data (WSJ)", "url": "https://www.wsj.com/market-data/quotes/QLD"},
-    
-    # 미국 전체 경제 동향 (3가지)
-    {"cat": "US Economy", "title": "🇺🇸 Market Flow: U.S. Markets and Economic Outlook (Reuters)", "url": "https://www.reuters.com/markets/us/"},
-    {"cat": "US Economy", "title": "🇺🇸 Fed Watch: Central Bank Policy & Interest Rate News (CNBC)", "url": "https://www.cnbc.com/economy/"},
-    {"cat": "US Economy", "title": "🇺🇸 Macro Data: Inflation & Consumer Price Index Trends (Bloomberg)", "url": "https://www.bloomberg.com/markets"},
-    
-    # 환율 동향 (2가지)
-    {"cat": "Forex", "title": "💱 Dollar Strength: U.S. Dollar Index (DXY) Analysis (Barron's)", "url": "https://www.barrons.com/topics/foreign-exchange"},
-    {"cat": "Forex", "title": "💱 FX Market: Real-time USD/KRW Exchange Rate (Investing.com)", "url": "https://www.investing.com/currencies/usd-krw"},
-    
-    # 미국 주요 정치 및 시사 (2가지)
-    {"cat": "US Politics", "title": "⚖️ Politics: White House & U.S. Election Coverage (NYT)", "url": "https://www.nytimes.com/section/politics"},
-    {"cat": "US Politics", "title": "⚖️ World Affairs: U.S. Foreign Policy & Global Impact (CNN)", "url": "https://edition.cnn.com/politics"},
-    
-    # 미국 핫이슈 (1가지)
-    {"cat": "Hot Issue", "title": "🔥 Viral Trend: TikTok Culture & Tech Viral News (The Verge)", "url": "https://www.theverge.com/culture"}
+    {
+        "category": "My Assets",
+        "title": "SCHD 배당 성장률 발표: 고배당주 포트폴리오의 안정적 흐름",
+        "summary": "금리 인하 기대감 속에 배당 성장주인 SCHD로의 자금 유입이 지속되고 있으며, 주요 구성 종목의 실적이 안정세를 보이고 있습니다.",
+        "link": "https://finance.yahoo.com/quote/SCHD"
+    },
+    {
+        "category": "US Market",
+        "title": "나스닥 100(QLD 관련) 변동성 확대: 기술주 실적 발표 대기 중",
+        "summary": "AI 관련 대형주들의 실적 발표를 앞두고 시장이 관망세를 유지 중입니다. QLD 등 레버리지 상품 투자 시 변동성에 주의가 필요합니다.",
+        "link": "https://www.wsj.com/market-data/quotes/QLD"
+    },
+    {
+        "category": "Economy",
+        "title": "미 연준 금리 동결 가능성 시사... 환율 변동성 주목",
+        "summary": "최신 고용 지표가 예상보다 견조하게 나오면서 조기 금리 인하 기대가 다소 꺾였습니다. 달러 강세 압력이 커질 수 있습니다.",
+        "link": "https://www.cnbc.com/economy/"
+    },
+    {
+        "category": "Crypto",
+        "title": "비트코인(BTC) 반감기 이후 기관 매수세 유입 가속화",
+        "summary": "현물 ETF 승인 이후 블랙록 등 거대 자산운용사의 매입이 계속되며 장기 지지선을 형성하고 있다는 분석입니다.",
+        "link": "https://finance.yahoo.com/quote/BTC-USD"
+    },
+    {
+        "category": "Hot Issue",
+        "title": "미국 내 틱톡 금리 법안 통과 여부와 MZ세대 소비 트렌드",
+        "summary": "SNS 관련 규제 소식과 더불어 최근 미국 젊은 층 사이에서 '저축 챌린지'가 유행하며 새로운 소비 문화가 형성되고 있습니다.",
+        "link": "https://www.theverge.com/culture"
+    }
 ]
 
-for news in news_data:
-    st.markdown(f"**[{news['cat']}]** 🔗 [{news['title']}]({news['url']})")
+# --- 3. UI 레이아웃 ---
+st.header(f"🤖 AI News Agent: {today}")
+st.write("사용자님의 포트폴리오와 시장 상황을 분석해 선별한 오늘의 5가지 소식입니다.")
 
-st.write("---")
+st.divider()
 
-# 영작 섹션
-st.subheader("✍️ English Writing Practice (Daily 10)")
-for i in range(1, 11):
-    st.text_input(f"Sentence {i:02d}", key=f"eng_input_{i}", placeholder="Write your sentence here...")
+# 뉴스 카드 형태로 출력
+for i, news in enumerate(news_data):
+    with st.container():
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            st.caption(f"TOP {i+1}")
+            st.markdown(f"`{news['category']}`")
+        with col2:
+            st.subheader(news['title'])
+            st.write(news['summary'])
+            st.markdown(f"[기사 원문 보기]({news['link']})")
+        st.divider()
+
+# 사이드바: 간단한 영작 연습
+st.sidebar.subheader("✍️ 오늘의 영작 1문장")
+st.sidebar.info("오늘 본 뉴스 중 인상 깊은 내용을 영어로 정리해 보세요.")
+st.sidebar.text_area("Your sentence:", placeholder="Ex: SCHD is a great dividend growth ETF.")
+if st.sidebar.button("오늘 공부 완료"):
+    st.sidebar.success("체크 완료! 🔵")
